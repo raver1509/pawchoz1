@@ -1,53 +1,23 @@
-Realizacja części obowiązkowej
-
-Plik server.js
+Wykazanie braku składowych z oceną CVSS w zakresie High lub Critical
 ```
-const express = require("express");
-const port = 5000;
-const geoip = require("geoip-lite");
-const moment = require("moment-timezone");
-const http = require('http');
+docker scout cves --format only-packages --only-vuln-packages local/zad1:v1
+```
+![alt text](image-1.png)
 
-
-const app = express();
-
-app.get("/", function (req, res) {
-    http.get({'host': 'api.ipify.org', 'port': 80, 'path': '/'}, function(resp) { // Pinguje strone, która zwraca moje publiczne IP
-        let ipAddr = '';
-
-        resp.on('data', function(chunk) {
-            ipAddr += chunk;
-        });
-
-        resp.on('end', function() {
-            const geo = geoip.lookup(ipAddr);
-            if (!geo) {
-                return res.status(400).send("Nie udało się uzyskać danych lokalizacyjnych");
-            } else {
-                const clientTime = moment.tz(moment(), geo.timezone).format("YYYY-MM-DD HH:mm:ss");
-                res.send(`
-                    <p>Adres IP: ${ipAddr}</p>
-                    <p>Strefa czasowa: ${geo.timezone}</p>
-                    <p>Data i czas: ${clientTime}</p>
-                `);
-            }
-        });
-    });
-});
-
-app.listen(port, function () {
-    console.log(`Server nasłuchuje na porcie ${port}!`);
-    console.log("Autor: Norbert Kowalik")
-});
+Stworzenie odpowiednie buildera
+```
+docker buildx create --name zad1builder --driver docker-container --boot
 ```
 
-Zawartość Dockerfile
+Ustawienie naszego buildera jako domyslny
+![alt text](image-3.png)
+
+Nie możliwe było zbudowanie obrazu wieloplatformowego używając pliku bazowego alpine przeznaczonego na konkretną platformę więc w pliku stworzyłem Dockerfile2,
+gdzie warstwą bazową jest alpine:latest
 
 ```
-FROM scratch as build
+FROM alpine:latest as build
 
-
-ADD alpine-minirootfs-3.19.1-x86_64.tar.gz /
 RUN apk update && apk upgrade && \
     apk add --no-cache --update nodejs npm
 
@@ -77,21 +47,9 @@ HEALTHCHECK --interval=10s --timeout=1s \
 CMD ["npm", "start"]
 ```
 
-Komenda budująca obraz
+Zbudowanie obrazu z użyciem naszego buildera
 ```
-docker build -f Dockerfile -t local/zad1:v1 .
+docker buildx build -q -f Dockerfile -t docker.io/raver1509/zadanie1:v1 --platform linux/arm64,linux/amd64 --push .
 ```
-
-Sprawdzenie stworzonych warstw
-```
-docker history local/zad1:v1
-```
-![alt text](image.png)
-
-Uruchomienie kontenera
-```
-docker run -d -p 5000:5000 --name zad1  local/zad1:v1 
-```
-
-Sprawdzenie działania
-![alt text](image-2.png)
+Powstanie obrazu wieloplatformowego
+![alt text](image-4.png)
